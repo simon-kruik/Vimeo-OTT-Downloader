@@ -8,8 +8,10 @@ from urllib.request import urlretrieve
 import time
 import os
 import json
+import re
 
 import config
+
 
 ps = requests.Session()
 ps.headers.update({
@@ -62,9 +64,20 @@ def get_videos_of_series(url):
 def get_file_from_video(v_url, quality='1080p'):
     r = ps.get(v_url)
     s = BeautifulSoup(r.content, features="lxml")
-    v_embed_url = urlparse(s.select_one("#watch-embed")["src"])
-    jwt_token = [x.split("=")[1] for x in v_embed_url.query.split("&") if "user-token" in x]
+    #print("s",s)
 
+    #v_embed_url = urlparse(s.select_one("#watch-embed")["src"])
+    scripts = s.select("script")
+    search_space = ""
+    for item in scripts:
+        search_space = search_space + repr(item)
+    #print(type(search_space))
+    search_results = re.search(r"(embed_url): \"(https:\/\/.*)(\",)",search_space)
+    #print(search_results.groups)
+    v_embed_url = search_results.group(2)
+    print(v_embed_url)
+    v_embed_url = urlparse(v_embed_url)
+    jwt_token = [x.split("=")[1] for x in v_embed_url.query.split("&") if "user-token" in x]
     params = {
         'api': '1',
         'auth-user-token': jwt_token,
@@ -112,7 +125,7 @@ for s in series_urls:
             try:
                 cdn_url, video_title, thumbnail_url = get_file_from_video(v)
             except Exception as ex:
-                print("ERROR on", v, "SKIPPING")
+                print("ERROR on", v, "SKIPPING", " - ", ex)
                 continue
 
             print(video_title, cdn_url)
